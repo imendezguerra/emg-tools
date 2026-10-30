@@ -4,6 +4,7 @@
 [![Python versions](https://img.shields.io/pypi/pyversions/emg-tools)](https://pypi.org/project/emg-tools/)
 [![CI](https://github.com/imendezguerra/emg-tools/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/imendezguerra/emg-tools/actions/workflows/ci.yml)
 [![Docs](https://github.com/imendezguerra/emg-tools/actions/workflows/docs.yml/badge.svg)](https://imendezguerra.github.io/emg-tools/)
+[![DOI](https://zenodo.org/badge/<repo-id>.svg)](https://doi.org/10.5281/zenodo.XXXXXXX)
 
 ## Overview
 <!-- --8<-- [start:overview] -->
@@ -82,7 +83,8 @@ If you use this code in your research, please cite this repository:
 author = {Mendez Guerra, Irene},
 title = {{EMG Toolbox}},
 url = {https://github.com/imendezguerra/emg-tools},
-version = {2.0.0}
+version = {2.0.0},
+doi = {10.5281/zenodo.23820576}
 }
 ```
 ## Contact
