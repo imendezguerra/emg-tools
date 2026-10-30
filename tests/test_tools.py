@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from emg_toolbox import tools
+from emg_tools import tools
 
 
 def test_arrange_flatten_roundtrip(emg, ch_map):

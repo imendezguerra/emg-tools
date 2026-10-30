@@ -1,4 +1,4 @@
-"""Tools for EMG data processing"""
+"""Rearrange EMG channels on an electrode grid and replace bad channels."""
 
 from copy import copy
 from typing import Union
@@ -11,15 +11,17 @@ def arrange_data_spatially(
     ch_map: np.ndarray
     ) -> np.ndarray:
 
-    """
-    Arrange the data spatially based on the channel map.
+    """Arrange (samples, chs) data on the electrode grid given by the channel map.
+
+    Grid positions with a negative or out-of-range channel index are filled with zeros.
 
     Args:
-        data (np.ndarray): The input data array of shape (samples, chs).
-        ch_map (np.ndarray): The channel map array of shape (rows, cols).
+        data (np.ndarray): Input data with shape (samples, chs).
+        ch_map (np.ndarray): Channel map with shape (rows, cols) holding the 0-based
+            channel index of each electrode, and -1 for empty positions.
 
     Returns:
-        np.ndarray: The spatially arranged data array of shape (rows, cols, samples).
+        np.ndarray: Spatially arranged data with shape (rows, cols, samples).
     """
 
     rows, cols = ch_map.shape
@@ -40,15 +42,18 @@ def flatten_data_spatially(
     ch_map: np.ndarray
     ) -> np.ndarray:
 
-    """
-    Flatten the data spatially based on the channel map.
+    """Flatten (rows, cols, samples) grid data back to (samples, chs).
+
+    Inverse of `arrange_data_spatially`. Channels missing from the map are filled with zeros.
 
     Args:
-        data (np.ndarray): The input data array of shape (rows, cols, samples).
-        ch_map (np.ndarray): The channel map array of shape (rows, cols).
+        data (np.ndarray): Input data with shape (rows, cols, samples).
+        ch_map (np.ndarray): Channel map with shape (rows, cols) holding the 0-based
+            channel index of each electrode, and -1 for empty positions.
 
     Returns:
-        np.ndarray: The spatially flattened data array of shape (samples, chs).
+        np.ndarray: Flattened data with shape (samples, chs), where chs is
+            `ch_map.max() + 1`.
     """
 
     samples = data.shape[-1]
@@ -70,20 +75,20 @@ def replace_bad_ch(
     ch_map: np.ndarray,
     ) -> np.ndarray:
 
-    """
-    Replace bad channels with the mean of their neighboring channels. Bad
-    channels without good neighbours are set to zero.
+    """Replace bad channels with the mean of their good neighbouring channels.
+
+    Neighbours are the up to 8 surrounding electrodes on the grid. Bad channels are
+    replaced in the given order, so a replaced channel can serve as a neighbour for the
+    next ones. Bad channels without good neighbours are set to zero.
 
     Args:
-        data (np.ndarray): Data with shape (samples, channels) or
-            (ch_rows, ch_cols, samples).
-        bad_ch (Union[list, np.ndarray]): A list or numpy array containing the
-            indices of the bad channels.
-        ch_map (np.ndarray): A 2D numpy array representing the channel map.
+        data (np.ndarray): Input data with shape (samples, chs) or (rows, cols, samples).
+        bad_ch (Union[list, np.ndarray]): 0-based indices of the bad channels.
+        ch_map (np.ndarray): Channel map with shape (rows, cols) holding the 0-based
+            channel index of each electrode, and -1 for empty positions.
 
     Returns:
-        data_out (np.ndarray): Data with the bad channels replaced.
-
+        np.ndarray: Copy of the data, same shape as the input, with the bad channels replaced.
     """
 
     # Initialise variables

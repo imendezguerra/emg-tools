@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from emg_toolbox import prepro
+from emg_tools import prepro
 
 N_SAMPLES = 6 * 2048
 EDGE = 2 * 2048  # the 1 Hz-wide powerline notch takes ~2 s to settle

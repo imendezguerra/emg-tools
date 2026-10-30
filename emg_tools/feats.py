@@ -1,4 +1,4 @@
-"""Functions to compute features from EMG signals"""
+"""Amplitude features of EMG signals."""
 
 from typing import Optional, Tuple
 
@@ -14,20 +14,24 @@ def compute_rms(
     fs: Optional[int] = 2048
     ) -> Tuple[np.ndarray, np.ndarray]:
 
-    """
-    Compute the Root Mean Square (RMS) of the data.
+    """Compute the moving-window Root Mean Square (RMS) of the data.
+
+    The RMS is computed per window and interpolated (Akima) back to the input
+    timestamps. Before the first and after the last window centre the edge values
+    are held.
 
     Args:
-        data (np.ndarray): The input data array of shape (samples, chs).
-        timestamps (np.ndarray): The timestamps array.
-        win_len_s (float, optional): The window length in seconds. Defaults to 0.1.
-        win_step_s (float, optional): The window step in seconds. Defaults to 0.1.
-        fs (int, optional): The sampling frequency. Defaults to 2048.
+        data (np.ndarray): Input data with shape (samples, chs).
+        timestamps (np.ndarray): Time of each sample in seconds, with shape (samples,).
+        win_len_s (float, optional): Window length in seconds. Default is 0.1.
+        win_step_s (float, optional): Window step in seconds. Default is 0.1.
+        fs (int, optional): Sampling frequency in Hz. Default is 2048.
 
     Returns:
-        Tuple[np.ndarray, np.ndarray]: The RMS array interpolated to the input
-            timestamps with shape (samples, chs), and the timestamps of the
-            window centres with shape (win_num,).
+        rms (np.ndarray): RMS interpolated to the input timestamps, with shape
+            (samples, chs).
+        timestamps_win (np.ndarray): Time of each window centre in seconds, with
+            shape (windows,).
     """
 
     # Initialise variables

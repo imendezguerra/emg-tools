@@ -1,4 +1,4 @@
-"""Tools for frequency domain analysis of EMG data"""
+"""Frequency-domain analysis of EMG signals."""
 
 from typing import Optional, Tuple
 
@@ -15,13 +15,13 @@ def get_spectrum(
 
     Args:
         data (np.ndarray): Input data with shape (samples, channels).
-        fs (int, optional): Sampling frequency. Default is 2048.
+        fs (int, optional): Sampling frequency in Hz. Default is 2048.
 
     Returns:
         spectrum (np.ndarray): Amplitude spectrum of the input data with shape
             (samples//2, channels), in the same units as the data, where the
             first dimension corresponds to the positive frequencies.
-        xf (np.ndarray): Frequency axis of the spectrum with shape (samples//2,).
+        xf (np.ndarray): Frequency axis in Hz, with shape (samples//2,).
     """
 
     # Initialise variables
@@ -44,12 +44,13 @@ def get_psd(
     nperseg: Optional[int] = None,
 ) -> Tuple[np.ndarray, np.ndarray]:
 
-    """Compute the Power Spectral Density (PSD) of the input data. By default
-    the standard periodogram is used; Welch's method can be requested instead.
+    """Compute the one-sided Power Spectral Density (PSD) of the input data.
+
+    By default the periodogram is used. Welch's method can be requested instead.
 
     Args:
         data (np.ndarray): Input data with shape (samples, channels).
-        fs (int, optional): Sampling frequency. Default is 2048.
+        fs (int, optional): Sampling frequency in Hz. Default is 2048.
         welch (bool, optional): If True, the PSD is estimated with Welch's
             method. Default is False (periodogram).
         nperseg (int, optional): Length of each segment in samples, only used
@@ -58,7 +59,7 @@ def get_psd(
     Returns:
         psd (np.ndarray): One-sided PSD of the input data with shape
             (freqs, channels), in units of data^2/Hz.
-        xf (np.ndarray): Frequency axis of the PSD with shape (freqs,).
+        xf (np.ndarray): Frequency axis in Hz, with shape (freqs,).
     """
 
     # Compute PSD
