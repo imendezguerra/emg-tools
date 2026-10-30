@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from emg_toolbox import freq
+from emg_tools import freq
 
 
 def test_get_spectrum_amplitude(make_tone, fs):

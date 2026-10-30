@@ -1,0 +1,68 @@
+site_name: EMG Toolbox
+site_description: Preprocess, analyse and plot EMG signals
+site_url: https://imendezguerra.github.io/emg-tools/
+repo_url: https://github.com/imendezguerra/emg-tools
+repo_name: imendezguerra/emg-tools
+edit_uri: edit/main/docs/
+
+# Files outside docs/ that `mkdocs serve` should also live-reload on
+watch:
+  - README.md
+  - emg_tools
+
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - API reference:
+      - tools: api/tools.md
+      - prepro: api/prepro.md
+      - feats: api/feats.md
+      - freq: api/freq.md
+      - plots: api/plots.md
+
+theme:
+  name: material
+  features:
+    - content.code.copy
+    - navigation.sections
+    - search.highlight
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+markdown_extensions:
+  - admonition
+  - toc:
+      permalink: true
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.snippets:
+      # Shared text lives in README.md and is pulled in by section
+      base_path: ["."]
+      check_paths: true
+
+plugins:
+  - search
+  - markdown-exec # runs ```python exec="true"``` blocks at build time
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            members_order: source
+            show_source: true
+            show_root_heading: true
+            show_root_full_path: false
+            show_signature_annotations: true
+            separate_signature: true
+            heading_level: 1
+            filters:
+              - "!^_" # private helpers

@@ -1,9 +1,15 @@
-name: emg_toolbox
+# Development environment. Runtime dependencies use the same lower bounds as
+# pyproject.toml [project.dependencies]; keep both in sync. The toolbox is then
+# installed in editable mode with the dev and docs extras.
+name: emg-tools
 channels:
-  - defaults
+  - conda-forge
 dependencies:
-  - python>=3.8
-  - numpy
-  - scipy
+  - python=3.12  # same as the CI lint, build and docs jobs; the test matrix covers 3.10-3.13
+  - numpy>=1.22
+  - scipy>=1.8
   - matplotlib>=3.5
-  - seaborn
+  - seaborn>=0.11
+  - pip
+  - pip:
+      - "-e .[dev,docs]"

@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from emg_toolbox import feats
+from emg_tools import feats
 
 
 def test_compute_rms_of_sine(make_tone, timestamps, fs):

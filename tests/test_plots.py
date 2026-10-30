@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 from scipy import signal
 
-from emg_toolbox import plots
+from emg_tools import plots
 
 pytestmark = pytest.mark.plot
 
@@ -57,3 +57,11 @@ def test_plot_spectrogram_multiple_signals(emg, fs):
     _, axs = plt.subplots(1, 2)
     out = plots.plot_spectrogram(f, t, np.moveaxis(sxx, 1, -1), ax=axs)
     assert list(out) == list(axs)
+
+
+def test_plot_ch_map(ch_map):
+    ch_map = ch_map.copy()
+    ch_map[0, 0] = -1  # empty cell
+    ax = plots.plot_ch_map(np.arange(ch_map.size, dtype=float), ch_map, bad_ch=[1, 2])
+    assert np.ma.getmaskarray(ax.collections[0].get_array()).ravel()[0]  # empty cell masked
+    assert len(ax.patches) == 2

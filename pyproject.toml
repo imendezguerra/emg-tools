@@ -2,10 +2,13 @@
 requires = ["setuptools>=77.0"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools.dynamic]
+version = {attr = "emg_tools.__version__"}
+
 [project]
-name = "emg_toolbox"
-version = "1.1.0"
-description = "emg_toolbox is a package to analyse EMG signals"
+name = "emg-tools"
+dynamic = ["version"]
+description = "Preprocess, analyse and plot EMG signals"
 authors = [
     {name = "Irene Mendez Guerra"}
 ]
@@ -14,13 +17,12 @@ license-files = ["LICENSE"]
 readme = "README.md"
 classifiers = [
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "numpy>=1.22",
     "scipy>=1.8",
@@ -28,16 +30,31 @@ dependencies = [
     "seaborn>=0.11",
 ]
 
+[project.urls]
+Homepage = "https://imendezguerra.github.io/emg-tools/"
+Documentation = "https://imendezguerra.github.io/emg-tools/"
+Source = "https://github.com/imendezguerra/emg-tools"
+Issues = "https://github.com/imendezguerra/emg-tools/issues"
+Changelog = "https://github.com/imendezguerra/emg-tools/releases"
+
 [project.optional-dependencies]
 dev = [
     "pytest>=7",
     "pytest-cov>=4",
     "ruff>=0.6",
     "pre-commit>=3",
+    "build>=1",
+    "twine>=5",
+]
+docs = [
+    "mkdocs>=1.6,<2",  # MkDocs 2.0 removes the plugin system that mkdocstrings needs
+    "mkdocs-material>=9.5",
+    "mkdocstrings[python]>=0.26",
+    "markdown-exec>=1.9",  # runs the getting-started examples and renders their plots
 ]
 
 [tool.setuptools.packages.find]
-include = ["emg_toolbox", "emg_toolbox.*"]
+include = ["emg_tools", "emg_tools.*"]
 
 # ---------------------------------------------------------------------------
 # pytest
@@ -55,7 +72,7 @@ filterwarnings = [
     # Third-party deprecations we cannot act on
     "ignore::DeprecationWarning:seaborn.*",
     "ignore::DeprecationWarning:dateutil.*",
-    # pyparsing>=3.3 deprecates camelCase names still used by matplotlib<3.10 (py3.9)
+    # pyparsing>=3.3 deprecates camelCase names still used by matplotlib<3.10 (minimum-deps job)
     "ignore:.* deprecated - use .*:DeprecationWarning:matplotlib.*",
     "ignore:.* argument is deprecated, use .*:DeprecationWarning",
     # seaborn 0.11 compares versions with distutils LooseVersion (minimum-deps job)
@@ -67,7 +84,7 @@ filterwarnings = [
 # coverage
 # ---------------------------------------------------------------------------
 [tool.coverage.run]
-source = ["emg_toolbox"]
+source = ["emg_tools"]
 branch = true
 
 [tool.coverage.report]
@@ -80,7 +97,7 @@ fail_under = 80
 # ---------------------------------------------------------------------------
 [tool.ruff]
 line-length = 100
-target-version = "py39"
+target-version = "py310"
 extend-exclude = ["*.egg-info"]
 
 [tool.ruff.lint]
@@ -103,4 +120,4 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["emg_toolbox"]
+known-first-party = ["emg_tools"]
