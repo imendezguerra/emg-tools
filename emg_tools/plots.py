@@ -136,6 +136,8 @@ def plot_psd(
     ax: Optional[plt.Axes] = None,
     palette_name: Optional[str] = "viridis",
     log_scale: Optional[bool] = False,
+    welch: Optional[bool] = False,
+    nperseg: Optional[int] = None,
     **kwarg: Optional[Union[str, int, float]]
 ) -> plt.Axes:
 
@@ -150,6 +152,10 @@ def plot_psd(
             the channels. Default is "viridis".
         log_scale (bool, optional): If True, the PSD axis is logarithmic. Default
             is False.
+        welch (bool, optional): If True, the PSD is estimated with Welch's
+                    method. Default is False (periodogram).
+        nperseg (int, optional): Length of each segment in samples, only used
+            if welch is True. Default is None, which uses scipy's default (256).
         **kwarg: Additional keyword arguments passed to `matplotlib.axes.Axes.plot`.
 
     Returns:
@@ -168,7 +174,7 @@ def plot_psd(
     ax.set_prop_cycle(color=color_palette)
 
     # Plot PSD
-    psd, xf = get_psd(data, fs)
+    psd, xf = get_psd(data, fs, welch=welch, nperseg=nperseg)
 
     if log_scale:
         ax.semilogy(xf, psd, **kwarg)
@@ -187,6 +193,8 @@ def plot_psd_map(
     log_scale: Optional[bool] = False,
     eps: Optional[float] = None,
     palette_name: Optional[str] = "viridis",
+    welch: Optional[bool] = False,
+    nperseg: Optional[int] = None,
     **kwarg: Optional[Union[str, int, float]]
 ) -> plt.Axes:
 
@@ -204,6 +212,10 @@ def plot_psd_map(
             positive PSD value.
         palette_name (str, optional): Name of the matplotlib colormap. Default is
             "viridis".
+        welch (bool, optional): If True, the PSD is estimated with Welch's
+                    method. Default is False (periodogram).
+        nperseg (int, optional): Length of each segment in samples, only used
+            if welch is True. Default is None, which uses scipy's default (256).
         **kwarg: Additional keyword arguments passed to
             `matplotlib.axes.Axes.pcolormesh`.
 
@@ -215,7 +227,7 @@ def plot_psd_map(
     samples, chs = data.shape
 
     # Plot PSD
-    psd, xf = get_psd(data, fs)
+    psd, xf = get_psd(data, fs, welch=welch, nperseg=nperseg)
 
     # Plot PSD
     if ax is None:
@@ -230,7 +242,7 @@ def plot_psd_map(
         cbar_label = 'PSD (mV^2/Hz)'
     im = ax.pcolormesh(
         np.arange(chs), xf, psd,
-        shading='gouraud', cmap=palette_name, norm=norm,
+        shading='auto', cmap=palette_name, norm=norm,
         **kwarg
         )
     cbar = ax.figure.colorbar(im, ax=ax)
