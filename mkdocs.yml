@@ -16,9 +16,11 @@ nav:
   - API reference:
       - tools: api/tools.md
       - prepro: api/prepro.md
+      - imputation: api/imputation.md
       - feats: api/feats.md
       - freq: api/freq.md
       - plots: api/plots.md
+      - similarity: api/similarity.md
 
 theme:
   name: material
