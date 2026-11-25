@@ -4,9 +4,9 @@ import pytest
 from emg_tools import feats, freq, tools
 
 
-def test_compute_rms_of_sine(make_tone, timestamps, fs):
+def test_get_rms_of_sine(make_tone, timestamps, fs):
     data = np.stack([make_tone(100, amp=1), make_tone(100, amp=3)], axis=-1)
-    rms, win_ts = feats.compute_rms(data, timestamps, fs=fs)
+    rms, win_ts = feats.get_rms(data, timestamps, fs=fs)
 
     assert rms.shape == data.shape
     np.testing.assert_allclose(rms, [[1 / np.sqrt(2), 3 / np.sqrt(2)]] * len(data), rtol=1e-2)
@@ -15,25 +15,25 @@ def test_compute_rms_of_sine(make_tone, timestamps, fs):
 
 
 @pytest.mark.parametrize("step_s", [0.2, 1.0, 1.8])
-def test_compute_rms_is_time_aligned(timestamps, fs, step_s):
+def test_get_rms_is_time_aligned(timestamps, fs, step_s):
     data = np.zeros((len(timestamps), 1))
     data[int(step_s * fs):] = 1
-    rms, _ = feats.compute_rms(data, timestamps, fs=fs)
+    rms, _ = feats.get_rms(data, timestamps, fs=fs)
 
     crossing = timestamps[np.argmax(rms[:, 0] > 0.5)]
     assert crossing == pytest.approx(step_s, abs=0.01)
 
 
-def test_compute_rms_shorter_than_window(rng, fs):
+def test_get_rms_shorter_than_window(rng, fs):
     data = rng.standard_normal((50, 2))
-    rms, win_ts = feats.compute_rms(data, np.arange(50) / fs, fs=fs)
+    rms, win_ts = feats.get_rms(data, np.arange(50) / fs, fs=fs)
 
     assert win_ts.shape == (1,)
     np.testing.assert_allclose(rms, np.tile(np.sqrt(np.mean(data**2, axis=0)), (50, 1)))
 
 
-@pytest.mark.parametrize("func", [feats.compute_rms, feats.compute_mav, feats.compute_wl,
-                                  feats.compute_zc, feats.compute_ssc])
+@pytest.mark.parametrize("func", [feats.get_rms, feats.get_mav, feats.get_wl,
+                                  feats.get_zc, feats.get_ssc])
 def test_windowed_output_shapes(func, emg, timestamps, fs):
     out, win_ts = func(emg, timestamps, fs=fs)
     out_win, win_ts_win = func(emg, timestamps, fs=fs, interp=False)
@@ -43,32 +43,32 @@ def test_windowed_output_shapes(func, emg, timestamps, fs):
     np.testing.assert_array_equal(win_ts, win_ts_win)
 
 
-def test_compute_mav_and_wl_of_sine(make_tone, timestamps, fs):
+def test_get_mav_and_wl_of_sine(make_tone, timestamps, fs):
     data = np.stack([make_tone(100, amp=1), make_tone(100, amp=3)], axis=-1)
-    mav, _ = feats.compute_mav(data, timestamps, fs=fs, interp=False)
-    wl, _ = feats.compute_wl(data, timestamps, fs=fs, interp=False)
+    mav, _ = feats.get_mav(data, timestamps, fs=fs, interp=False)
+    wl, _ = feats.get_wl(data, timestamps, fs=fs, interp=False)
 
     # MAV of a sine is 2 * amp / pi, WL is 4 * amp per period (10 per 0.1 s window)
     np.testing.assert_allclose(mav, [[2 / np.pi, 6 / np.pi]] * len(mav), rtol=1e-2)
     np.testing.assert_allclose(wl, [[40, 120]] * len(wl), rtol=2e-2)
 
 
-def test_compute_zc_and_ssc_of_sine(make_tone, timestamps, fs):
+def test_get_zc_and_ssc_of_sine(make_tone, timestamps, fs):
     data = make_tone(100.3, amp=1)[:, None]   # off-grid frequency avoids exact zeros
-    zc, _ = feats.compute_zc(data, timestamps, fs=fs, interp=False)
-    ssc, _ = feats.compute_ssc(data, timestamps, fs=fs, interp=False)
+    zc, _ = feats.get_zc(data, timestamps, fs=fs, interp=False)
+    ssc, _ = feats.get_ssc(data, timestamps, fs=fs, interp=False)
 
     # Two crossings and two turning points per period, ~10 periods per window
     np.testing.assert_allclose(zc, 20, atol=1)
     np.testing.assert_allclose(ssc, 20, atol=1)
 
 
-def test_compute_zc_and_ssc_threshold(rng, timestamps, fs):
+def test_get_zc_and_ssc_threshold(rng, timestamps, fs):
     data = 0.01 * rng.standard_normal((len(timestamps), 1))   # baseline noise
-    zc_all, _ = feats.compute_zc(data, timestamps, fs=fs, interp=False)
-    zc_thr, _ = feats.compute_zc(data, timestamps, threshold=0.1, fs=fs, interp=False)
-    ssc_all, _ = feats.compute_ssc(data, timestamps, fs=fs, interp=False)
-    ssc_thr, _ = feats.compute_ssc(data, timestamps, threshold=0.1, fs=fs, interp=False)
+    zc_all, _ = feats.get_zc(data, timestamps, fs=fs, interp=False)
+    zc_thr, _ = feats.get_zc(data, timestamps, threshold=0.1, fs=fs, interp=False)
+    ssc_all, _ = feats.get_ssc(data, timestamps, fs=fs, interp=False)
+    ssc_thr, _ = feats.get_ssc(data, timestamps, threshold=0.1, fs=fs, interp=False)
 
     # Noise gives many counts, a threshold above the noise removes them
     assert zc_all.min() > 50

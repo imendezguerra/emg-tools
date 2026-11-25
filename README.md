@@ -61,7 +61,7 @@ emg += 0.5 * np.sin(2 * np.pi * 50 * timestamps)[:, None]       # powerline nois
 emg_filt = prepro.remove_powerline(emg, fs=fs, cutoff=50)
 emg_filt = prepro.bandpass_filter(emg_filt, fs=fs, cutoff=[20, 500])
 
-rms, t_win = feats.compute_rms(emg_filt, timestamps, win_len_s=0.25, win_step_s=0.125, fs=fs)
+rms, t_win = feats.get_rms(emg_filt, timestamps, win_len_s=0.25, win_step_s=0.125, fs=fs)
 rms.shape                                   # (10240, 16): one RMS value per sample and channel
 ```
 <!-- --8<-- [end:quickstart] -->

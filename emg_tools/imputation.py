@@ -451,7 +451,7 @@ def _ref_scores(
     timestamps = np.arange(len(data)) / fs
 
     def rms(x):
-        rms_win, _ = feats.compute_rms(x, timestamps, fs=fs, interp=False)
+        rms_win, _ = feats.get_rms(x, timestamps, fs=fs, interp=False)
         return np.median(rms_win, axis=0)
 
     def log_psd(x):

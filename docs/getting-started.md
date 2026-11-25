@@ -241,11 +241,11 @@ show()  # markdown-exec: hide
 
 ### RMS envelope
 
-`compute_rms` computes the RMS in sliding windows and interpolates it back to every sample, so
+`get_rms` computes the RMS in sliding windows and interpolates it back to every sample, so
 the result has the same shape as the data:
 
 ```python exec="true" source="above" session="gs" html="true"
-rms, t_win = feats.compute_rms(emg_clean, timestamps, win_len_s=0.25, win_step_s=0.125, fs=fs)
+rms, t_win = feats.get_rms(emg_clean, timestamps, win_len_s=0.25, win_step_s=0.125, fs=fs)
 rms.shape                                   # (10240, 16)
 t_win[:3]                                   # ~[0.125, 0.25, 0.375]: window centres (s)
 rms[[fs // 2, int(2.5 * fs), int(4.5 * fs)], 0]   # array([0.21, 0.68, 0.22]): follows the ramp
@@ -278,23 +278,23 @@ show()  # markdown-exec: hide
 
 ### Time-domain features
 
-`compute_mav` (mean absolute value), `compute_wl` (waveform length), `compute_zc` (zero
-crossings) and `compute_ssc` (slope sign changes) use the same windows as `compute_rms`. Pass
+`get_mav` (mean absolute value), `get_wl` (waveform length), `get_zc` (zero
+crossings) and `get_ssc` (slope sign changes) use the same windows as `get_rms`. Pass
 `interp=False` to get one row per window, e.g. to build a feature matrix for a classifier or
 regressor:
 
 ```python exec="true" source="above" session="gs" html="true"
 kw = dict(win_len_s=0.25, win_step_s=0.125, fs=fs, interp=False)
-rms_win, t_win = feats.compute_rms(emg_clean, timestamps, **kw)   # (39, 16)
-mav, _ = feats.compute_mav(emg_clean, timestamps, **kw)
-wl, _ = feats.compute_wl(emg_clean, timestamps, **kw)
-zc, _ = feats.compute_zc(emg_clean, timestamps, threshold=0.01, **kw)
-ssc, _ = feats.compute_ssc(emg_clean, timestamps, threshold=0.01, **kw)
+rms_win, t_win = feats.get_rms(emg_clean, timestamps, **kw)   # (39, 16)
+mav, _ = feats.get_mav(emg_clean, timestamps, **kw)
+wl, _ = feats.get_wl(emg_clean, timestamps, **kw)
+zc, _ = feats.get_zc(emg_clean, timestamps, threshold=0.01, **kw)
+ssc, _ = feats.get_ssc(emg_clean, timestamps, threshold=0.01, **kw)
 X = np.hstack([rms_win, mav, wl, zc, ssc])                         # (39, 80): windows x features
 ```
 
 Windows are always full length; samples after the last full window are not used. `threshold`
-in `compute_zc` and `compute_ssc` should sit above the baseline noise, so noise is not counted.
+in `get_zc` and `get_ssc` should sit above the baseline noise, so noise is not counted.
 WL is a sum, so it scales with the window length.
 
 ### Spatial features

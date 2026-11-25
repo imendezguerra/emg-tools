@@ -70,7 +70,7 @@ def _windowed(
     return feat, timestamps_win
 
 
-def compute_rms(
+def get_rms(
     data: np.ndarray,
     timestamps: np.ndarray,
     win_len_s: Optional[float] = 0.1,
@@ -102,7 +102,7 @@ def compute_rms(
     return _windowed(data, timestamps, rms, win_len_s, win_step_s, fs, interp)
 
 
-def compute_mav(
+def get_mav(
     data: np.ndarray,
     timestamps: np.ndarray,
     win_len_s: Optional[float] = 0.1,
@@ -133,7 +133,7 @@ def compute_mav(
     return _windowed(data, timestamps, mav, win_len_s, win_step_s, fs, interp)
 
 
-def compute_wl(
+def get_wl(
     data: np.ndarray,
     timestamps: np.ndarray,
     win_len_s: Optional[float] = 0.1,
@@ -167,7 +167,7 @@ def compute_wl(
     return _windowed(data, timestamps, wl, win_len_s, win_step_s, fs, interp)
 
 
-def compute_zc(
+def get_zc(
     data: np.ndarray,
     timestamps: np.ndarray,
     threshold: Optional[float] = 0.0,
@@ -205,7 +205,7 @@ def compute_zc(
     return _windowed(data, timestamps, zc, win_len_s, win_step_s, fs, interp)
 
 
-def compute_ssc(
+def get_ssc(
     data: np.ndarray,
     timestamps: np.ndarray,
     threshold: Optional[float] = 0.0,
