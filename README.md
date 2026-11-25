@@ -12,9 +12,11 @@ EMG Toolbox is a Python package to preprocess, analyse and plot electromyography
 
 The package is composed of the following modules:
 
-- `tools`: rearrange channels between `(samples, channels)` and grid `(rows, cols, samples)` formats, and replace bad channels with the mean of their neighbours.
-- `prepro`: Butterworth bandpass, highpass, lowpass and powerline (bandstop) filters.
-- `feats`: amplitude features such as the moving-window root mean square (RMS).
+- `tools`: rearrange channels between `(samples, channels)` and grid `(rows, cols, samples)` formats, and convert a channel map into channel positions.
+- `prepro`: Butterworth bandpass, highpass, lowpass and powerline (bandstop, with harmonics) filters, and moving-average drift removal.
+- `feats`: moving-window amplitude features (RMS, MAV, waveform length, zero crossings, slope sign changes), spatial features for grids (centre of gravity, spatial entropy, coefficient of variation) and spectral features.
+- `imputation`: find bad channels by iterative imputation, and impute them from their neighbours or by interpolation.
+- `similarity`: pairwise similarity (correlation or cosine, optionally lag-aligned) and coherence between channels.
 - `freq`: amplitude spectrum and power spectral density (periodogram or Welch).
 - `plots`: plot channels over time, PSDs, PSD maps across channels, and spectrograms.
 <!-- --8<-- [end:overview] -->

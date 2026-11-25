@@ -21,6 +21,7 @@ def rms(x):
         (prepro.lowpass_filter, {}, 100, 900),
         (prepro.remove_powerline, {}, 100, 50),
         (prepro.remove_powerline, {"cutoff": 60}, 100, 60),
+        (prepro.remove_powerline, {"n_harmonics": 3}, 120, 150),
     ],
 )
 @pytest.mark.parametrize("filtfilt", [True, False])
@@ -38,3 +39,24 @@ def test_filter_does_not_modify_input(emg):
     original = emg.copy()
     prepro.bandpass_filter(emg)
     np.testing.assert_array_equal(emg, original)
+
+
+def test_remove_powerline_skips_harmonics_above_nyquist(make_tone):
+    data = make_tone(50, n_samples=N_SAMPLES)
+    out = prepro.remove_powerline(data, n_harmonics=100)  # 50 * 100 Hz > fs / 2
+    assert out.shape == data.shape
+    assert rms(out) < 0.1 * rms(data)
+
+
+def test_remove_drift(make_tone):
+    tone = make_tone(100, n_samples=N_SAMPLES)
+    drift = np.linspace(0, 10, N_SAMPLES)
+    out = prepro.remove_drift(tone + drift, window=205)  # ~10 Hz at 2048 Hz
+
+    assert out.shape == tone.shape
+    np.testing.assert_allclose(out[EDGE:-EDGE], tone[EDGE:-EDGE], atol=0.05)
+
+
+def test_remove_drift_rejects_bad_window(emg):
+    with pytest.raises(ValueError, match="window must be"):
+        prepro.remove_drift(emg, window=0)
