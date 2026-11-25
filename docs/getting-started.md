@@ -11,6 +11,10 @@
   `tools.arrange_data_spatially` and `tools.flatten_data_spatially`.
 - **The channel map** `ch_map` is an integer array of shape `(rows, cols)` holding the 0-based
   channel index of each electrode. Empty grid positions are marked with `-1`.
+- **Channel coordinates** `ch_coord` are the physical `(x, y)` positions of the channels, with
+  shape `(channels, 2)`: row `i` is channel `i`, and channels without a position are `NaN`. Get
+  them from a grid with `tools.ch_map_to_coord(ch_map, ied)`, or write them directly for other
+  layouts.
 - **Bad channels** are a list of 0-based channel indices.
 - **Timestamps** are the time in seconds of each sample, e.g. `np.arange(n_samples) / fs`.
 - **The sampling frequency** `fs` is in Hz (default `2048`).
@@ -53,7 +57,7 @@ same on every run:
 ```python exec="true" source="above" session="gs" html="true"
 import numpy as np
 
-from emg_tools import feats, freq, plots, prepro, tools
+from emg_tools import feats, freq, imputation, plots, prepro, tools
 
 fs = 2048                                   # sampling frequency (Hz)
 n_samples = 5 * fs                          # 5 s recording
@@ -97,18 +101,39 @@ not shift the signal in time. Set `filtfilt=False` for causal (forward only) fil
 
 ### Replace bad channels
 
-`replace_bad_ch` replaces each bad channel with the mean of its good neighbours on the grid
-(up to 8 surrounding electrodes). Channel 5 sits at row 1, column 1, so it becomes the mean of
+Bad channels are imputed from the physical positions of the channels. For a grid, get them from
+the channel map and the inter-electrode distance (here 8 mm):
+
+```python exec="true" source="above" session="gs" html="true"
+ch_coord = tools.ch_map_to_coord(ch_map, ied=8)   # (16, 2) positions in mm
+```
+
+`replace_bad_ch` replaces each bad channel with the mean of its good neighbours: by default the
+channels within `ied·√2`, with the ied estimated from the coordinates. On a grid that is the up
+to 8 surrounding electrodes. Channel 5 sits at row 1, column 1, so it becomes the mean of
 channels 0, 1, 2, 4, 6, 8, 9 and 10:
 
 ```python exec="true" source="above" session="gs" html="true"
-emg_clean = tools.replace_bad_ch(emg_filt, bad_ch=[5], ch_map=ch_map)
+emg_clean = imputation.replace_bad_ch(emg_filt, bad_ch=[5], ch_coord=ch_coord)
 ```
 
 - Bad channels are replaced in order, so an already replaced channel counts as a good neighbour
   for the next one.
 - A bad channel with no good neighbours is set to zero.
-- Grid data `(rows, cols, samples)` is accepted too.
+- Pass `max_dist` to set the radius yourself (needed for non-square grids), or use
+  `method="delaunay"` for irregular layouts.
+
+`interp_bad_ch` instead fits a smooth field through all the good channels (thin-plate spline
+by default) and evaluates it at the bad ones. `get_loo_error` tells you how well either setting
+works on your data: it predicts each good channel from the others and returns the relative
+error (0 is perfect, 1 is no better than zeros):
+
+```python exec="true" source="above" session="gs" html="true"
+emg_interp = imputation.interp_bad_ch(emg_filt, bad_ch=[5], ch_coord=ch_coord)
+
+error, good = imputation.get_loo_error(emg_filt[:fs], ch_coord, bad_ch=[5])   # 1 s is enough
+print(f"Median leave-one-out error: {np.median(error):.2f}")
+```
 
 ### Check the spectrum
 

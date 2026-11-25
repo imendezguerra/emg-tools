@@ -83,7 +83,7 @@ If you use this code in your research, please cite this repository:
 author = {Mendez Guerra, Irene},
 title = {{EMG Toolbox}},
 url = {https://github.com/imendezguerra/emg-tools},
-version = {2.0.0},
+version = {3.0.0},
 doi = {10.5281/zenodo.23820576}
 }
 ```

@@ -1,9 +1,11 @@
-"""Amplitude features of EMG signals."""
+"""Amplitude and spectral features of EMG signals."""
 
 from typing import Optional, Tuple
 
 import numpy as np
+from scipy.integrate import trapezoid
 from scipy.interpolate import Akima1DInterpolator
+from scipy.special import entr
 
 
 def compute_rms(
@@ -66,3 +68,99 @@ def compute_rms(
         rms[:, ch] = Akima1DInterpolator(timestamps_aux, rms_aux[:, ch])(timestamps_interp)
 
     return rms, timestamps_aux
+
+
+def get_mean_freq(psd: np.ndarray, xf: np.ndarray) -> np.ndarray:
+    """Compute the mean frequency of the Power Spectral Density (PSD).
+
+    Args:
+        psd (np.ndarray): PSD with shape (freqs, chs), e.g. from `freq.get_psd`.
+        xf (np.ndarray): Frequency axis in Hz, with shape (freqs,).
+
+    Returns:
+        mean_freq (np.ndarray): Mean frequency in Hz, with shape (chs,).
+    """
+
+    # Weight each frequency by its power
+    mean_freq = np.sum(xf[:, None] * psd, axis=0) / np.sum(psd, axis=0)
+
+    return mean_freq
+
+
+def get_median_freq(psd: np.ndarray, xf: np.ndarray) -> np.ndarray:
+    """Compute the median frequency of the Power Spectral Density (PSD).
+
+    Args:
+        psd (np.ndarray): PSD with shape (freqs, chs), e.g. from `freq.get_psd`.
+        xf (np.ndarray): Frequency axis in Hz, with shape (freqs,).
+
+    Returns:
+        median_freq (np.ndarray): Median frequency in Hz, with shape (chs,).
+    """
+
+    # Find where the cumulative power crosses half of the total
+    cum_power = np.cumsum(psd, axis=0)
+    idx = np.argmax(cum_power >= cum_power[-1] / 2, axis=0)
+    median_freq = xf[idx]
+
+    return median_freq
+
+
+def get_band_power(
+    psd: np.ndarray,
+    xf: np.ndarray,
+    band: Tuple[float, float],
+    ) -> np.ndarray:
+    """Compute the power of the Power Spectral Density (PSD) within a frequency band.
+
+    The power is the integral of the PSD over the band (trapezoidal rule), with
+    both band edges included.
+
+    Args:
+        psd (np.ndarray): PSD with shape (freqs, chs), e.g. from `freq.get_psd`.
+        xf (np.ndarray): Frequency axis in Hz, with shape (freqs,).
+        band (Tuple[float, float]): Lower and upper band edges in Hz.
+
+    Returns:
+        band_power (np.ndarray): Power in the band with shape (chs,), in units
+            of data^2.
+    """
+
+    # Select the frequencies inside the band
+    mask = (xf >= band[0]) & (xf <= band[1])
+
+    # Integrate the PSD over the band
+    band_power = trapezoid(psd[mask], xf[mask], axis=0)
+
+    return band_power
+
+
+def get_spectral_entropy(
+    psd: np.ndarray,
+    normalise: Optional[bool] = True,
+    ) -> np.ndarray:
+    """Compute the spectral entropy of the Power Spectral Density (PSD).
+
+    The PSD of each channel is normalised to a probability distribution and its
+    Shannon entropy is computed. A flat spectrum has maximal entropy and a single
+    tone has zero entropy.
+
+    Args:
+        psd (np.ndarray): PSD with shape (freqs, chs), e.g. from `freq.get_psd`.
+        normalise (bool, optional): If True, the entropy is divided by its
+            maximum, log(freqs), so it lies in [0, 1]. Default is True.
+
+    Returns:
+        entropy (np.ndarray): Spectral entropy with shape (chs,), in nats if
+            not normalised.
+    """
+
+    # Normalise the PSD to a probability distribution
+    prob = psd / np.sum(psd, axis=0)
+
+    # Compute Shannon entropy (0 * log(0) = 0)
+    entropy = np.sum(entr(prob), axis=0)
+    if normalise:
+        entropy /= np.log(psd.shape[0])
+
+    return entropy
