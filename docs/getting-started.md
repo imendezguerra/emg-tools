@@ -116,7 +116,11 @@ cleaned reference, so a channel flagged only because of a bad neighbour is clear
 iteration. It stops when the bad set no longer changes:
 
 ```python exec="true" source="above" session="gs" html="true"
-bad, scores, history = imputation.find_bad_ch(emg_filt, ch_coord, fs)
+bad, scores, history = imputation.find_bad_ch(
+    emg_filt, ch_coord, fs,
+    neighbour_method="max_dist",   # 'max_dist', 'delaunay' for regular and irregular grids
+    k={"amp": 4, "amp_peak": 4, "corr": 3, "psd_corr": 9},   # fences per score (default 1.5)
+    )
 bad                       # array([5])
 history[-1]["status"]     # 'converged'
 ```
@@ -129,22 +133,33 @@ described below:
 emg_clean = imputation.interp_bad_ch(emg_filt, bad, ch_coord)
 ```
 
-- Scores: `amp`, the RMS minus the median RMS of the neighbours; `corr`, the median correlation
-  with the neighbours; and `psd_corr`, the median correlation of the log PSD with the
-  neighbours' (spectral shape) within `psd_band` (default 20–500 Hz, set it to your filter's
+- Scores: `amp`, the median over 0.1 s windows of log(RMS / median RMS of the neighbours), for
+  sustained faults (dead channel, poor contact); `amp_peak`, the 95th percentile over windows of
+  the same ratio, for faults in only some windows (e.g. movement artefacts); `corr`, the median
+  correlation with the neighbours; and `psd_corr`, the median correlation of the log PSD with
+  the neighbours' (spectral shape) within `psd_band` (default 20–500 Hz, set it to your filter's
   passband). Pass filtered data: low-frequency and powerline artefacts are expected to be
   removed beforehand.
+- The RMS ratio doesn't depend on the activation level, so windows at rest and at the
+  contraction peak weigh the same. For `amp_peak`, `noise_floor` is added to both RMS values. By default it is the median over channels of their 5th percentile window
+  RMS, which is only the noise floor if the recording has rest periods. Otherwise, pass the RMS of
+  a rest recording, e.g. `noise_floor=np.sqrt(np.mean(rest**2))`.
+- Neighbours are found with `neighbour_method`: `'max_dist'` and `'delaunay'` for regular and
+  irregular electrode grids respectively.
 - A channel is bad if any score is outside its Tukey fences (`find_outliers`) on its bad side,
   or is NaN (a flat channel has no correlation). Each score has its own fence multiplier `k`,
-  default `imputation.K_DEFAULT = {'amp': 3, 'corr': 3, 'psd_corr': 9}`. Spectral-shape
-  correlations of clean channels cluster close to 1 with a long low tail, so `psd_corr` needs a
-  wider fence. Override any of them, e.g. `k={'psd_corr': 7}`.
-- The defaults come from simulated grids, where they flag 2–5% of clean recordings. To calibrate
-  them for your setup, run `find_bad_ch` on clean recordings and raise a score's `k` if
-  `history[0]['flagged_by']` shows it flagging channels you consider good.
+  default `imputation.K_DEFAULT`, 1.5 for all (the standard Tukey fences). Override any of them,
+  e.g. `k={'psd_corr': 9}`. With the defaults, this example also flags the corner channels 0 and
+  15, so it widens the fences to the values above, which flag a few percent of clean recordings
+  in simulated grids. Spectral-shape correlations of clean channels cluster close to 1 with a long
+  low tail, so `psd_corr` needs the widest fence. To calibrate them for your setup, run
+  `find_bad_ch` on clean recordings and raise a score's `k` if `history[0]['flagged_by']` shows it
+  flagging channels you consider good.
 - `history` has one dict per iteration (tested and flagged sets, `flagged_by` per score, scores,
   and the debugging variables `loo_error`, `dispersion` and `dev_from_mean`), and a final dict with
-  the returned `bad` set, the `status` and the diagnostics on the channels never flagged.
+  the returned `bad` set, the `status` and the diagnostics on the channels never flagged. The
+  leave-one-out error uses the entire recording; pass `seg_s` (e.g. `seg_s=X`) to compute it on
+  the first X seconds only and speed it up on long recordings.
 - It stops with status `'cycle'` if a set repeats (the set with the lowest leave-one-out error
   is returned), `'max_frac'` if more than `max_frac` (25%) of the channels are flagged, or
   `'max_iter'`. The last two also warn.
@@ -156,7 +171,7 @@ stands out in the first iteration. Once imputed it has the lowest deviation (not
 colour scale), since interpolation smooths it:
 
 ```python exec="true" source="above" session="gs" html="true"
-history[0]["flagged_by"]   # {'amp': [5], 'corr': [5], 'psd_corr': [5]}
+history[0]["flagged_by"]   # {'amp': [5], 'amp_peak': [], 'corr': [5], 'psd_corr': [5]}
 
 iters, final = np.arange(len(history) - 1), history[-1]
 fig, axes = plt.subplots(1, 3, figsize=(12, 3.5))
@@ -176,7 +191,7 @@ show()  # markdown-exec: hide
 ```
 
 `replace_bad_ch` replaces each bad channel with the mean of its good neighbours: by default the
-channels within `ied·√2`, with the ied estimated from the coordinates. On a grid that is the up
+channels within `ied * sqrt(2)`, with the ied estimated from the coordinates. On a grid that is the up
 to 8 surrounding electrodes. Channel 5 sits at row 1, column 1, so it becomes the mean of
 channels 0, 1, 2, 4, 6, 8, 9 and 10:
 

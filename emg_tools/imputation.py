@@ -286,12 +286,13 @@ def get_loo_error(
 # Tail of each score that marks a bad channel
 _SIDES = {
     'amp': 'both',             # dead or flat (low), poor contact (high)
+    'amp_peak': 'high',        # intermittent artefacts
     'corr': 'low',             # unlike its neighbours in time
     'psd_corr': 'low',         # unlike its neighbours in spectral shape
     }
 
-# Default Tukey fence multiplier per score, from simulated HD-EMG (see docs)
-K_DEFAULT = {'amp': 3.0, 'corr': 3.0, 'psd_corr': 9.0}
+
+K_DEFAULT = {'amp': 1.5, 'amp_peak': 1.5, 'corr': 1.5, 'psd_corr': 1.5}
 
 
 def find_bad_ch(
@@ -302,9 +303,10 @@ def find_bad_ch(
     k: Optional[Dict[str, float]] = None,
     max_frac: Optional[float] = 0.25,
     max_iter: Optional[int] = 10,
-    seg_s: Optional[float] = 1.0,
+    seg_s: Optional[float] = None,
     neighbour_method: Optional[Literal['max_dist', 'delaunay']] = 'max_dist',
     max_dist: Optional[float] = None,
+    noise_floor: Optional[float] = None,
     **kwargs: Any,
     ) -> Tuple[np.ndarray, Dict[str, np.ndarray], List[dict]]:
 
@@ -314,7 +316,12 @@ def find_bad_ch(
     reference, then tests the original signal of every positioned channel
     (including the current bad ones) against it:
 
-    - 'amp': RMS minus the median RMS of its neighbours in the reference.
+    - 'amp': median over 0.1 s windows of log(RMS / median RMS of its neighbours
+      in the reference). The ratio makes it independent of the activation level,
+      and the median catches sustained faults (dead channel, poor contact).
+    - 'amp_peak': robust max (95th percentile over windows) of the same log ratio, with
+      `noise_floor` added to both RMS values. It catches faults present in only
+      some windows (e.g. movement artefacts).
     - 'corr': median correlation with its neighbours in the reference, ignoring
       flat neighbours. The median keeps one bad neighbour from lowering it.
     - 'psd_corr': median correlation of its log PSD (Welch) in `psd_band` with
@@ -351,18 +358,23 @@ def find_bad_ch(
             Default is (20, 500).
         k (Dict[str, float], optional): Fence multiplier of the IQR for
             `find_outliers` per score. Given scores override `K_DEFAULT`
-            ({'amp': 3.0, 'corr': 3.0, 'psd_corr': 9.0}), e.g. {'psd_corr': 7}.
+            (1.5 for all, the standard Tukey fences), e.g. {'psd_corr': 9}.
             Default is None (`K_DEFAULT`).
         max_frac (float, optional): Maximum fraction of positioned channels
             that can be bad. Default is 0.25.
         max_iter (int, optional): Maximum number of iterations. Default is 10.
         seg_s (float, optional): Length in seconds of the initial segment used
-            for the leave-one-out error. Default is 1.0.
+            for the leave-one-out error, e.g. 5.0 to speed it up on long
+            recordings. Default is None (the entire recording).
         neighbour_method (str, optional): Neighbour method used for the scores,
             passed to `get_neighbours`: 'max_dist' or 'delaunay'. Default is
             'max_dist'.
         max_dist (float, optional): Neighbour radius for 'max_dist', in the
             units of ch_coord. Default is None (ied * sqrt(2)).
+        noise_floor (float, optional): Amplifier noise RMS, in the units of
+            data, added to the window RMS for 'amp_peak', e.g. the RMS of a
+            rest recording. Default is None: the median over channels of their
+            5th percentile window RMS assuming there are rest periods in data.
         **kwargs: Passed to `interp_bad_ch`, e.g. `kernel` or `smoothing`.
 
     Returns:
@@ -401,7 +413,7 @@ def find_bad_ch(
     for _ in range(max_iter):
         # Reference: current bad channels imputed
         ref = interp_bad_ch(data, sorted(bad), coord, **kwargs) if bad else data
-        scores = _ref_scores(data, ref, pos, neigh, fs, psd_band)
+        scores = _ref_scores(data, ref, pos, neigh, fs, psd_band, noise_floor)
         # Flag outliers on the bad side of each score, and NaN scores
         flagged_by = {}
         for name, score in scores.items():
@@ -409,7 +421,8 @@ def find_bad_ch(
             hit[find_outliers(score[pos], k[name], _SIDES[name])] = True
             flagged_by[name] = pos[hit]
         flagged = frozenset(np.concatenate(list(flagged_by.values())).tolist())
-        loo_error = _loo_error(data, ref, coord, int(seg_s * fs), **kwargs)
+        seg_len = None if seg_s is None else int(seg_s * fs)
+        loo_error = _loo_error(data, ref, coord, seg_len, **kwargs)
         history.append(_diagnostics(ref, pos, bad, flagged, flagged_by, scores, loo_error))
         tested.append(bad)
 
@@ -452,6 +465,7 @@ def _ref_scores(
     neigh: List[np.ndarray],
     fs: int,
     psd_band: Tuple[float, float],
+    noise_floor: Optional[float] = None,
     ) -> Dict[str, np.ndarray]:
     """Scores of each original channel against its neighbours in the reference."""
 
@@ -459,20 +473,32 @@ def _ref_scores(
 
     def rms(x):
         rms_win, _ = feats.get_rms(x, timestamps, fs=fs, interp=False)
-        return np.median(rms_win, axis=0)
+        return rms_win
 
     def log_psd(x):
         psd, xf = freq.get_psd(x, fs, welch=True)
         with np.errstate(divide='ignore'):
             return np.log(psd[(xf >= psd_band[0]) & (xf <= psd_band[1])])
 
+    # Window RMS of each channel and of the median of its neighbours in the reference
     rms_data, rms_ref = rms(data), rms(ref)
-    amp = np.full(data.shape[1], np.nan)
-    for ch, n in zip(pos, neigh, strict=True):
-        amp[ch] = rms_data[ch] - np.median(rms_ref[n])
+    if noise_floor is None:
+        noise_floor = np.median(np.quantile(rms_data[:, pos], 0.05, axis=0))
+    amp, amp_peak = np.full(data.shape[1], np.nan), np.full(data.shape[1], np.nan)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        for ch, n in zip(pos, neigh, strict=True):
+            # Median neighbour rms
+            rms_neigh = np.median(rms_ref[:, n], axis=1)
+            # Ratio of the current ch rms wrt neighbours in logscale
+            amp[ch] = np.median(np.log(rms_data[:, ch] / rms_neigh))
+            # Top 5% values of the ratio of the current ch rms wrt neighbours in logscale
+            amp_peak[ch] = np.quantile(
+                np.log((rms_data[:, ch] + noise_floor) / (rms_neigh + noise_floor)), 0.95
+                )
 
     return {
         'amp': amp,
+        'amp_peak': amp_peak,
         'corr': _neigh_corr(data, ref, pos, neigh),
         'psd_corr': _neigh_corr(log_psd(data), log_psd(ref), pos, neigh),
         }
@@ -508,10 +534,13 @@ def _loo_error(
     data: np.ndarray,
     ref: np.ndarray,
     coord: np.ndarray,
-    seg_len: int,
+    seg_len: Optional[int],
     **kwargs: Any,
     ) -> np.ndarray:
-    """Leave-one-out error per channel of the original signal predicted from the reference."""
+    """Leave-one-out error per channel of the original signal predicted from the reference.
+
+    Only the first seg_len samples are used, or all of them if seg_len is None.
+    """
 
     loo_error = np.full(data.shape[1], np.nan)
     with np.errstate(divide='ignore', invalid='ignore'):
