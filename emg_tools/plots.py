@@ -195,6 +195,7 @@ def plot_psd_map(
     palette_name: Optional[str] = "viridis",
     welch: Optional[bool] = False,
     nperseg: Optional[int] = None,
+    cbar_label: Optional[str] = None,
     **kwarg: Optional[Union[str, int, float]]
 ) -> plt.Axes:
 
@@ -216,6 +217,7 @@ def plot_psd_map(
                     method. Default is False (periodogram).
         nperseg (int, optional): Length of each segment in samples, only used
             if welch is True. Default is None, which uses scipy's default (256).
+        cbar_label (str, optional): Colorbar label. Defaults to None.
         **kwarg: Additional keyword arguments passed to
             `matplotlib.axes.Axes.pcolormesh`.
 
@@ -236,9 +238,9 @@ def plot_psd_map(
         if eps is None:
             eps = _min_positive(psd)
         norm=colors.LogNorm(vmin=eps, vmax=psd.max())
-        cbar_label = 'PSD (mV^2/Hz)'
     else:
         norm=None
+    if cbar_label is None:
         cbar_label = 'PSD (mV^2/Hz)'
     im = ax.pcolormesh(
         np.arange(chs), xf, psd,
