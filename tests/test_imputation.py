@@ -3,6 +3,9 @@ import pytest
 
 from emg_tools import imputation, prepro, tools
 
+# Fences wider than the standard Tukey ones (K_DEFAULT), from simulated HD-EMG
+K = {'amp': 4.0, 'amp_peak': 4.0, 'corr': 3.0, 'psd_corr': 9.0}
+
 
 def test_find_outliers():
     data = np.array([10.0, 1, 2, 3, 4, 5, -8, 3, 2])
@@ -201,11 +204,11 @@ def grid8():
 
 def test_find_bad_ch_clean(grid8):
     data, coord, fs, _, _ = grid8
-    bad, scores, history = imputation.find_bad_ch(data, coord, fs)
+    bad, scores, history = imputation.find_bad_ch(data, coord, fs, k=K)
 
     assert bad.size == 0
     assert history[-1]['status'] == 'converged'
-    assert set(scores) == {'amp', 'corr', 'psd_corr'}
+    assert set(scores) == {'amp', 'amp_peak', 'corr', 'psd_corr'}
 
 
 def test_find_bad_ch_faults(grid8):
@@ -214,7 +217,7 @@ def test_find_bad_ch_faults(grid8):
     data[:, 20] += 3 * rng.standard_normal(len(t))       # noisy
     hf = prepro.bandpass_filter(rng.standard_normal((len(t), 1)), fs=fs, cutoff=[300, 500])
     data[:, 50] += 0.5 * np.std(data[:, 50]) * hf[:, 0] / np.std(hf)   # high-frequency noise
-    bad, _, history = imputation.find_bad_ch(data, coord, fs)
+    bad, _, history = imputation.find_bad_ch(data, coord, fs, k=K)
 
     np.testing.assert_array_equal(bad, [5, 20, 50])
     final = history[-1]
@@ -235,7 +238,7 @@ def test_find_bad_ch_max_frac(grid8):
     data, coord, fs, _, _ = grid8
     data[:, :20] = 0                                     # 20 of 64 dead
     with pytest.warns(UserWarning, match="max_frac"):
-        bad, _, history = imputation.find_bad_ch(data, coord, fs)
+        bad, _, history = imputation.find_bad_ch(data, coord, fs, k=K)
 
     assert history[-1]['status'] == 'max_frac'
     assert history[-1]['bad'] == bad.tolist()
@@ -247,9 +250,9 @@ def test_find_bad_ch_k_per_score(grid8):
     data[:, 50] += 0.5 * np.std(data[:, 50]) * hf[:, 0] / np.std(hf)
 
     # A wide fence for psd_corr alone stops it flagging the noisy channel
-    _, _, history = imputation.find_bad_ch(data, coord, fs)
+    _, _, history = imputation.find_bad_ch(data, coord, fs, k=K)
     assert 50 in history[0]['flagged_by']['psd_corr']
-    _, _, history = imputation.find_bad_ch(data, coord, fs, k={'psd_corr': 1000})
+    _, _, history = imputation.find_bad_ch(data, coord, fs, k={**K, 'psd_corr': 1000})
     assert 50 not in history[0]['flagged_by']['psd_corr']
     with pytest.raises(ValueError, match="k keys"):
         imputation.find_bad_ch(data, coord, fs, k={'log_amp': 3})
@@ -262,9 +265,38 @@ def test_find_bad_ch_neighbour_method(grid8):
 
     # Both neighbour methods find the same faults on a regular grid
     for kw in ({'neighbour_method': 'delaunay'}, {'max_dist': 8}):
-        bad, _, history = imputation.find_bad_ch(data, coord, fs, **kw)
+        bad, _, history = imputation.find_bad_ch(data, coord, fs, k=K, **kw)
         assert {5, 20} <= set(bad.tolist())
 
     # The neighbour method is passed to get_neighbours
     with pytest.raises(ValueError, match="method must be"):
         imputation.find_bad_ch(data, coord, fs, neighbour_method='knn')
+
+
+def test_find_bad_ch_intermittent_artefact(grid8):
+    data, coord, fs, t, rng = grid8
+    for start in (0.5, 2.0, 3.5):                       # 3 bursts of 0.2 s
+        seg = (t >= start) & (t < start + 0.2)
+        data[seg, 20] += 3 * np.std(data[:, 20]) * rng.standard_normal(seg.sum())
+    bad, scores, history = imputation.find_bad_ch(data, coord, fs, k=K)
+
+    np.testing.assert_array_equal(bad, [20])
+    assert history[0]['flagged_by']['amp_peak'] == [20]
+    assert 20 not in history[0]['flagged_by']['amp']    # the median ignores the bursts
+
+    # A higher noise floor compresses amp_peak and leaves amp unchanged
+    _, scores_floor, _ = imputation.find_bad_ch(data, coord, fs, k=K, noise_floor=10)
+    assert scores_floor['amp_peak'][20] < scores['amp_peak'][20]
+    np.testing.assert_allclose(scores_floor['amp'], scores['amp'])
+
+
+def test_ref_scores_amp_scale_invariant(grid8):
+    data, coord, fs, _, _ = grid8
+    pos = np.arange(64)
+    neigh = [imputation.get_neighbours(ch, coord) for ch in pos]
+    scores = imputation._ref_scores(data, data, pos, neigh, fs, (20, 500), noise_floor=0.01)
+    scaled = imputation._ref_scores(5 * data, 5 * data, pos, neigh, fs, (20, 500), noise_floor=0.05)
+
+    # The RMS ratios don't depend on the signal scale (activation level)
+    np.testing.assert_allclose(scaled['amp'], scores['amp'])
+    np.testing.assert_allclose(scaled['amp_peak'], scores['amp_peak'])
