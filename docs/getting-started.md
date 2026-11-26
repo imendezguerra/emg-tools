@@ -188,7 +188,7 @@ emg_clean = imputation.replace_bad_ch(emg_filt, bad_ch=bad, ch_coord=ch_coord)
   for the next one.
 - A bad channel with no good neighbours is set to zero.
 - Pass `max_dist` to set the radius yourself (needed for non-square grids), or use
-  `method="delaunay"` for irregular layouts.
+  `neighbour_method="delaunay"` for irregular layouts.
 - `get_neighbours` returns these neighbours directly, e.g. to compare a channel with its
   surroundings: `imputation.get_neighbours(5, ch_coord)`. Pass `exclude` to leave out bad channels.
 

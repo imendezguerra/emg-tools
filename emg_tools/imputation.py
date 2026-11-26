@@ -123,7 +123,7 @@ def replace_bad_ch(
     data: np.ndarray,
     bad_ch: Union[list, np.ndarray],
     ch_coord: np.ndarray,
-    method: Optional[Literal['max_dist', 'delaunay']] = 'max_dist',
+    neighbour_method: Optional[Literal['max_dist', 'delaunay']] = 'max_dist',
     max_dist: Optional[float] = None,
     verbose: Optional[bool] = False,
     ) -> np.ndarray:
@@ -140,8 +140,8 @@ def replace_bad_ch(
         ch_coord (np.ndarray): Physical (x, y) position of each channel with
             shape (chs, 2), NaN for channels without a position. See
             `tools.ch_map_to_coord` for grids.
-        method (str, optional): Neighbour method, 'max_dist' or 'delaunay'.
-            Default is 'max_dist'.
+        neighbour_method (str, optional): Neighbour method, passed to
+            `get_neighbours`: 'max_dist' or 'delaunay'. Default is 'max_dist'.
         max_dist (float, optional): Neighbour radius for 'max_dist', in the
             units of ch_coord. Default is None (ied * sqrt(2)).
         verbose (bool, optional): Print each replaced channel and its
@@ -157,7 +157,7 @@ def replace_bad_ch(
 
     for i, ch in enumerate(bad):
         # Channels still pending replacement are not neighbours
-        neigh = get_neighbours(ch, coord, method, max_dist, exclude=bad[i:])
+        neigh = get_neighbours(ch, coord, neighbour_method, max_dist, exclude=bad[i:])
 
         # Substitute channel (set to zero if there are no good neighbours)
         data_out[:, ch] = np.mean(data_out[:, neigh], axis=1) if neigh.size else 0
@@ -303,6 +303,8 @@ def find_bad_ch(
     max_frac: Optional[float] = 0.25,
     max_iter: Optional[int] = 10,
     seg_s: Optional[float] = 1.0,
+    neighbour_method: Optional[Literal['max_dist', 'delaunay']] = 'max_dist',
+    max_dist: Optional[float] = None,
     **kwargs: Any,
     ) -> Tuple[np.ndarray, Dict[str, np.ndarray], List[dict]]:
 
@@ -356,6 +358,11 @@ def find_bad_ch(
         max_iter (int, optional): Maximum number of iterations. Default is 10.
         seg_s (float, optional): Length in seconds of the initial segment used
             for the leave-one-out error. Default is 1.0.
+        neighbour_method (str, optional): Neighbour method used for the scores,
+            passed to `get_neighbours`: 'max_dist' or 'delaunay'. Default is
+            'max_dist'.
+        max_dist (float, optional): Neighbour radius for 'max_dist', in the
+            units of ch_coord. Default is None (ied * sqrt(2)).
         **kwargs: Passed to `interp_bad_ch`, e.g. `kernel` or `smoothing`.
 
     Returns:
@@ -384,7 +391,7 @@ def find_bad_ch(
     # Initialise variables
     coord, _ = _check_inputs(data, (), ch_coord)
     pos = np.flatnonzero(np.isfinite(coord).all(axis=1))
-    neigh = [get_neighbours(ch, coord) for ch in pos]
+    neigh = [get_neighbours(ch, coord, neighbour_method, max_dist) for ch in pos]
     k = {**K_DEFAULT, **(k or {})}
     if set(k) != set(K_DEFAULT):
         raise ValueError(f"k keys must be in {sorted(K_DEFAULT)}, got {sorted(k)}")

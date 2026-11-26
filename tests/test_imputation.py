@@ -96,14 +96,14 @@ def test_replace_bad_ch_delaunay_irregular(rng):
     # Channel 0 sits in the middle of a triangle, channel 4 is far outside it
     coord = np.array([[0.0, 0.0], [-1, -1], [1, -1], [0, 1.5], [10, 10]])
     data = rng.standard_normal((50, 5))
-    out = imputation.replace_bad_ch(data, [0], coord, method="delaunay")
+    out = imputation.replace_bad_ch(data, [0], coord, neighbour_method="delaunay")
     np.testing.assert_allclose(out[:, 0], data[:, [1, 2, 3]].mean(axis=-1))
 
 
 def test_replace_bad_ch_delaunay_collinear_uses_2_nearest(rng):
     coord = np.c_[np.arange(5.0), np.zeros(5)]
     data = rng.standard_normal((50, 5))
-    out = imputation.replace_bad_ch(data, [2], coord, method="delaunay")
+    out = imputation.replace_bad_ch(data, [2], coord, neighbour_method="delaunay")
     np.testing.assert_allclose(out[:, 2], data[:, [1, 3]].mean(axis=-1))
 
 
@@ -131,7 +131,7 @@ def test_bad_ch_input_checks(emg, ch_coord, func):
 
 def test_replace_bad_ch_invalid_method(emg, ch_coord):
     with pytest.raises(ValueError, match="method must be"):
-        imputation.replace_bad_ch(emg, [0], ch_coord, method="nearest")
+        imputation.replace_bad_ch(emg, [0], ch_coord, neighbour_method="nearest")
 
 
 def test_interp_bad_ch_recovers_smooth_field(ch_coord):
@@ -253,3 +253,18 @@ def test_find_bad_ch_k_per_score(grid8):
     assert 50 not in history[0]['flagged_by']['psd_corr']
     with pytest.raises(ValueError, match="k keys"):
         imputation.find_bad_ch(data, coord, fs, k={'log_amp': 3})
+
+
+def test_find_bad_ch_neighbour_method(grid8):
+    data, coord, fs, t, rng = grid8
+    data[:, 5] = 0                                       # dead
+    data[:, 20] += 3 * rng.standard_normal(len(t))       # noisy
+
+    # Both neighbour methods find the same faults on a regular grid
+    for kw in ({'neighbour_method': 'delaunay'}, {'max_dist': 8}):
+        bad, _, history = imputation.find_bad_ch(data, coord, fs, **kw)
+        assert {5, 20} <= set(bad.tolist())
+
+    # The neighbour method is passed to get_neighbours
+    with pytest.raises(ValueError, match="method must be"):
+        imputation.find_bad_ch(data, coord, fs, neighbour_method='knn')
